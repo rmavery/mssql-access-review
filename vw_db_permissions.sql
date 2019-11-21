@@ -1,11 +1,19 @@
+USE [model]
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE VIEW [dbo].[vw_db_permissions]
+AS 
 /*
 Security Audit Report
+-- ORIGINAL CREDIT: https://stackoverflow.com/questions/7048839/sql-server-query-to-find-all-permissions-access-for-all-users-in-a-database 
 1) List all access provisioned to a sql user or windows user/group directly 
 2) List all access provisioned to a sql user or windows user/group through a database or application role
 3) List all access provisioned to the public role
-
 Columns Returned:
-UserName        : SQL or Windows/Active Directory user account.  This could also be an Active Directory group.
+UserName        : SQL or Windows/Active Directory user cccount.  This could also be an Active Directory group.
 UserType        : Value will be either 'SQL User' or 'Windows User'.  This reflects the type of user defined for the 
                   SQL Server user account.
 DatabaseUserName: Name of the associated user as defined in the database user account.  The database user may not be the
@@ -29,9 +37,11 @@ ObjectName      : Name of the object that the user/role is assigned permissions 
 ColumnName      : Name of the column of the object that the user/role is assigned permissions on. This value
                   is only populated if the object is a table, view or a table value function.                 
 */
-
 --List all access provisioned to a sql user or windows user/group directly 
-SELECT  
+SELECT 
+    [SERVER] = @@SERVERNAME,
+    [Database] = DB_NAME(), 
+    [Type] = 'SQL User or windows user/group', 
     [UserName] = CASE princ.[type] 
                     WHEN 'S' THEN princ.[name]
                     WHEN 'U' THEN ulogin.[name] COLLATE Latin1_General_CI_AI
@@ -66,7 +76,10 @@ WHERE
     princ.[type] in ('S','U')
 UNION
 --List all access provisioned to a sql user or windows user/group through a database or application role
-SELECT  
+SELECT 
+    [SERVER] = @@SERVERNAME,
+    [Database] = DB_NAME(),  
+    [Type] = 'Provisioned through role', 
     [UserName] = CASE memberprinc.[type] 
                     WHEN 'S' THEN memberprinc.[name]
                     WHEN 'U' THEN ulogin.[name] COLLATE Latin1_General_CI_AI
@@ -105,7 +118,10 @@ LEFT JOIN
     sys.objects obj ON perm.[major_id] = obj.[object_id]
 UNION
 --List all access provisioned to the public role, which everyone gets by default
-SELECT  
+SELECT
+    [SERVER] = @@SERVERNAME,
+    [Database] = DB_NAME(),  
+    [Type] = 'Provisioned to Public {ALL USERS}', 
     [UserName] = '{All Users}',
     [UserType] = '{All Users}', 
     [DatabaseUserName] = '{All Users}',       
@@ -135,10 +151,11 @@ WHERE
     roleprinc.[name] = 'public' AND
     --Only objects of ours, not the MS objects
     obj.is_ms_shipped = 0
-ORDER BY
-    princ.[Name],
-    OBJECT_NAME(perm.major_id),
-    col.[name],
-    perm.[permission_name],
-    perm.[state_desc],
-    obj.type_desc--perm.[class_desc] 
+--ORDER BY
+--    princ.[Name],
+--    OBJECT_NAME(perm.major_id),
+--    col.[name],
+--    perm.[permission_name],
+--    perm.[state_desc],
+--    obj.type_desc--perm.[class_desc] 
+GO
